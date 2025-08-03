@@ -1,29 +1,55 @@
 #!/bin/bash
 
-# Simple Voron Config Backup - KISS Version with Safety Improvements
-# Maintains same functionality as original autocommit.sh but safer
+# Voron Config Backup with Simple Configuration File
+# Reads all settings from ~/.voron-backup-config
 
-# Configuration (edit as needed)
-config_folder=~/printer_data/config
-klipper_folder=~/klipper
-moonraker_folder=~/moonraker
-mainsail_folder=~/mainsail
-fluidd_folder=~/fluidd
-branch=main
-db_file=~/printer_data/database/moonraker-sql.db
+CONFIG_FILE="$HOME/.voron-backup-config"
 
-# GitHub credentials from environment variables (more secure)
-GITHUB_TOKEN="${GITHUB_TOKEN:-}"
-GITHUB_REPO="${GITHUB_REPO:-}"
+# Check if config file exists
+if [ ! -f "$CONFIG_FILE" ]; then
+    echo "ERROR: Configuration file not found: $CONFIG_FILE"
+    echo ""
+    echo "Please create the configuration file with your settings."
+    echo "See the documentation for the required format."
+    exit 1
+fi
+
+# Load configuration (simple and reliable)
+echo "Loading configuration from $CONFIG_FILE..."
+set -a  # automatically export all variables
+source "$CONFIG_FILE"
+set +a  # stop auto-exporting
+
+# Expand tilde in paths
+CONFIG_FOLDER=$(eval echo "${CONFIG_FOLDER:-~/printer_data/config}")
+KLIPPER_FOLDER=$(eval echo "${KLIPPER_FOLDER:-~/klipper}")
+MOONRAKER_FOLDER=$(eval echo "${MOONRAKER_FOLDER:-~/moonraker}")
+MAINSAIL_FOLDER=$(eval echo "${MAINSAIL_FOLDER:-~/mainsail}")
+FLUIDD_FOLDER=$(eval echo "${FLUIDD_FOLDER:-~/fluidd}")
+DATABASE_FILE=$(eval echo "${DATABASE_FILE:-~/printer_data/database/moonraker-sql.db}")
+
+# Set defaults for optional settings
+GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
+GIT_USER_NAME="${GIT_USER_NAME:-Voron-Backup-Bot}"
+GIT_USER_EMAIL="${GIT_USER_EMAIL:-voron-backup-bot@noreply.github.com}"
+BACKUP_DATABASE="${BACKUP_DATABASE:-true}"
+VERBOSE_OUTPUT="${VERBOSE_OUTPUT:-false}"
 
 # Lock file to prevent simultaneous runs
-LOCK_FILE="$config_folder/.backup_lock"
+LOCK_FILE="$CONFIG_FOLDER/.backup_lock"
 
 # Cleanup function
 cleanup() {
     rm -f "$LOCK_FILE"
 }
 trap cleanup EXIT
+
+# Verbose logging function
+log() {
+    if [ "$VERBOSE_OUTPUT" = "true" ]; then
+        echo "$1"
+    fi
+}
 
 # Check for simultaneous runs
 if [ -f "$LOCK_FILE" ]; then
@@ -33,59 +59,66 @@ fi
 touch "$LOCK_FILE"
 
 # Validate critical paths and credentials
-if [ ! -d "$config_folder" ]; then
-    echo "ERROR: Config folder not found: $config_folder"
+if [ ! -d "$CONFIG_FOLDER" ]; then
+    echo "ERROR: Config folder not found: $CONFIG_FOLDER"
     exit 1
 fi
 
 if [ -z "$GITHUB_TOKEN" ] || [ -z "$GITHUB_REPO" ]; then
-    echo "ERROR: GitHub credentials not set"
-    echo "Set environment variables:"
-    echo "  export GITHUB_TOKEN='ghp_your_token'"
-    echo "  export GITHUB_REPO='username/repo-name'"
+    echo "ERROR: GitHub credentials not set in configuration file"
+    echo "Please update $CONFIG_FILE with your GitHub token and repository"
     exit 1
 fi
+
+log "Configuration loaded successfully:"
+log "  Config folder: $CONFIG_FOLDER"
+log "  GitHub repo: $GITHUB_REPO"
+log "  Branch: $GITHUB_BRANCH"
 
 # Get version information (with error handling)
 grab_version(){
     m1="" m2="" m3="" m4=""
 
-    if [ ! -z "$klipper_folder" ] && [ -d "$klipper_folder" ]; then
-        klipper_commit=$(git -C "$klipper_folder" describe --always --tags --long 2>/dev/null | awk '{gsub(/^ +| +$/,"")} {print $0}')
+    if [ ! -z "$KLIPPER_FOLDER" ] && [ -d "$KLIPPER_FOLDER" ]; then
+        klipper_commit=$(git -C "$KLIPPER_FOLDER" describe --always --tags --long 2>/dev/null | awk '{gsub(/^ +| +$/,"")} {print $0}')
         [ ! -z "$klipper_commit" ] && m1="Klipper version: $klipper_commit"
+        log "Found Klipper: $klipper_commit"
     fi
 
-    if [ ! -z "$moonraker_folder" ] && [ -d "$moonraker_folder" ]; then
-        moonraker_commit=$(git -C "$moonraker_folder" describe --always --tags --long 2>/dev/null | awk '{gsub(/^ +| +$/,"")} {print $0}')
+    if [ ! -z "$MOONRAKER_FOLDER" ] && [ -d "$MOONRAKER_FOLDER" ]; then
+        moonraker_commit=$(git -C "$MOONRAKER_FOLDER" describe --always --tags --long 2>/dev/null | awk '{gsub(/^ +| +$/,"")} {print $0}')
         [ ! -z "$moonraker_commit" ] && m2="Moonraker version: $moonraker_commit"
+        log "Found Moonraker: $moonraker_commit"
     fi
 
-    if [ ! -z "$mainsail_folder" ] && [ -f "$mainsail_folder/.version" ]; then
-        mainsail_ver=$(head -n 1 "$mainsail_folder/.version" 2>/dev/null)
+    if [ ! -z "$MAINSAIL_FOLDER" ] && [ -f "$MAINSAIL_FOLDER/.version" ]; then
+        mainsail_ver=$(head -n 1 "$MAINSAIL_FOLDER/.version" 2>/dev/null)
         [ ! -z "$mainsail_ver" ] && m3="Mainsail version: $mainsail_ver"
+        log "Found Mainsail: $mainsail_ver"
     fi
 
-    if [ ! -z "$fluidd_folder" ] && [ -f "$fluidd_folder/.version" ]; then
-        fluidd_ver=$(head -n 1 "$fluidd_folder/.version" 2>/dev/null)
+    if [ ! -z "$FLUIDD_FOLDER" ] && [ -f "$FLUIDD_FOLDER/.version" ]; then
+        fluidd_ver=$(head -n 1 "$FLUIDD_FOLDER/.version" 2>/dev/null)
         [ ! -z "$fluidd_ver" ] && m4="Fluidd version: $fluidd_ver"
+        log "Found Fluidd: $fluidd_ver"
     fi
 }
 
 # Copy database for backup (with error handling)
-if [ -f "$db_file" ]; then
+if [ "$BACKUP_DATABASE" = "true" ] && [ -f "$DATABASE_FILE" ]; then
     echo "SQLite history database found! Copying..."
-    if cp "$db_file" "$config_folder/" 2>/dev/null; then
+    if cp "$DATABASE_FILE" "$CONFIG_FOLDER/" 2>/dev/null; then
         echo "Database backup successful"
     else
         echo "WARNING: Failed to copy database"
     fi
 else
-    echo "SQLite history database not found"
+    log "Database backup skipped or file not found"
 fi
 
 # Push configuration (with error handling)
 push_config(){
-    cd "$config_folder" || {
+    cd "$CONFIG_FOLDER" || {
         echo "ERROR: Cannot access config folder"
         exit 1
     }
@@ -93,18 +126,18 @@ push_config(){
     # Initialize git if needed
     if [ ! -d ".git" ]; then
         echo "Initializing git repository..."
-        git init -b main
-        git config user.name "Voron-Backup-Bot"
-        git config user.email "voron-backup-bot@noreply.github.com"
+        git init -b "$GITHUB_BRANCH"
+        git config user.name "$GIT_USER_NAME"
+        git config user.email "$GIT_USER_EMAIL"
     fi
 
-    # Set up or update remote URL with token from environment
+    # Set up or update remote URL with token
     git remote remove origin 2>/dev/null || true
     git remote add origin "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
 
     # Pull with error handling
     echo "Pulling latest changes..."
-    if ! git pull origin "$branch" --no-rebase 2>/dev/null; then
+    if ! git pull origin "$GITHUB_BRANCH" --no-rebase 2>/dev/null; then
         echo "WARNING: Git pull failed, continuing with backup"
         # Check for merge conflicts
         if git status --porcelain | grep -q "^UU\|^AA\|^DD"; then
@@ -142,7 +175,7 @@ push_config(){
 
     # Push with error handling
     echo "Pushing to GitHub..."
-    if git push origin "$branch"; then
+    if git push origin "$GITHUB_BRANCH"; then
         echo "✅ Backup completed successfully!"
     else
         echo "❌ ERROR: Push failed - backup not completed"
@@ -152,3 +185,4 @@ push_config(){
 
 grab_version
 push_config
+
