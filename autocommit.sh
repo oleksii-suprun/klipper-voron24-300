@@ -127,9 +127,11 @@ push_config(){
     if [ ! -d ".git" ]; then
         echo "Initializing git repository..."
         git init -b "$GITHUB_BRANCH"
-        git config user.name "$GIT_USER_NAME"
-        git config user.email "$GIT_USER_EMAIL"
     fi
+    
+    # Always set git user configuration
+    git config user.name "$GIT_USER_NAME"
+    git config user.email "$GIT_USER_EMAIL"
 
     # Set up or update remote URL with token
     git remote remove origin 2>/dev/null || true
