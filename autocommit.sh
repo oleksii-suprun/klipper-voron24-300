@@ -134,8 +134,14 @@ push_config(){
     git config user.email "$GIT_USER_EMAIL"
 
     # Set up or update remote URL with token
-    git remote remove origin 2>/dev/null || true
-    git remote add origin "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
+    if git remote get-url origin >/dev/null 2>&1; then
+        git remote set-url origin "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
+    else
+        git remote add origin "https://${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
+    fi
+    
+    # Set up branch tracking
+    git branch --set-upstream-to=origin/"$GITHUB_BRANCH" "$GITHUB_BRANCH" 2>/dev/null || true
 
     # Pull with error handling
     echo "Pulling latest changes..."
