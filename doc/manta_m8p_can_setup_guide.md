@@ -46,14 +46,20 @@ Each stage follows the same 12-phase workflow:
 ## Hardware Preparation
 
 ### Initial Hardware State
-- [ ] EBB board unplugged from everything
-- [ ] Only Manta M8P V2.0 powered on
-- [ ] SSH connection to CB1/CM4 established
-- [ ] CAN0 interface verified working
+- EBB board unplugged from everything
+- Only Manta M8P V2.0 powered on
+- SSH connection to CB1/CM4 established
+- CAN0 interface verified working
 
 ## Stage 1: Manta M8P V2.0 Configuration
 
-### Phase 1: Clone and Setup Repositories
+### Phase 1: Get Katapult
+
+Katapult is a bootloader that enables firmware updates over CAN bus. Without it, you'd need to
+physically connect via USB and enter DFU mode for every firmware update. With Katapult, you can
+update your EBB toolhead remotely over CAN.
+
+Repository: https://github.com/Arksine/katapult
 
 ```bash
 # Navigate to home directory
@@ -64,6 +70,10 @@ git clone https://github.com/Arksine/katapult.git
 ```
 
 ### Phase 2: Configure and Build Katapult
+
+Configure the Katapult bootloader for the Manta M8P's STM32H723 processor. The 128KiB offset
+reserves space at the beginning of flash memory for the bootloader, with the main Klipper
+firmware installed after it.
 
 ```bash
 # Enter Katapult directory
@@ -98,6 +108,10 @@ make
 ```
 
 ### Phase 3: Configure and Build Klipper
+
+Build the main Klipper firmware configured as a "USB to CAN bus bridge". This makes the Manta
+M8P translate USB communication from the Raspberry Pi CM4 into CAN bus signals for connected
+devices. The bootloader offset must match the Katapult configuration (128KiB).
 
 ```bash
 # Enter Klipper directory
@@ -156,8 +170,14 @@ Bus 001 Device XXX: ID 0483:df11 STMicroelectronics STM Device in DFU Mode
 
 ### Phase 7: Flash Katapult
 
+Write the Katapult bootloader to the start of flash memory (address 0x08000000). This must be
+installed first to reserve memory space for the bootloader.
+
+**Note:** The device ID `0483:df11` should match the ID from `lsusb | grep -i dfu` in Phase 6.
+Use your actual ID if different.
+
 ```bash
-# Flash Katapult bootloader
+# Flash Katapult bootloader (use your device ID from Phase 6)
 sudo dfu-util -a 0 -D ~/katapult/out/katapult.bin --dfuse-address 0x08000000:force:leave -d 0483:df11
 ```
 
@@ -213,6 +233,11 @@ Query Complete
 
 ## Stage 2: EBB Toolhead Board Configuration
 
+Configure the EBB SB2209 to communicate over CAN bus. Unlike the Manta M8P (which acts as a
+USB-to-CAN bridge), the EBB board will be a pure CAN device handling all toolhead functions
+(extruder, hotend, fans, probe) with communication through the CAN bus instead of a thick
+cable bundle.
+
 ### Phase 1: Hardware Preparation
 
 **Setup EBB board:**
@@ -222,6 +247,10 @@ Query Complete
 4. **DO NOT** connect CAN cable yet
 
 ### Phase 2: Configure and Build Katapult
+
+Configure Katapult for the EBB SB2209's RP2040 processor. The RP2040 uses a smaller 16KiB
+bootloader (vs 128KiB on STM32) and requires specific flash chip settings. CAN GPIO pins 4
+and 5 are specific to the EBB board's hardware design.
 
 ```bash
 # Enter Katapult directory
@@ -233,18 +262,19 @@ make menuconfig
 
 **Katapult Configuration for EBB SB2209 (RP2040):**
 ```
-[*] Enable extra low-level configuration options
-Micro-controller Architecture (Raspberry Pi RP2040) --->
-Build Katapult deployment application (Do not build) --->
+Micro-controller Architecture (Raspberry Pi RP2040/RP235x) --->
+Processor model (rp2040) --->
 Flash chip (GENERIC_03H with CLKDIV 4) --->
-Communication interface (CAN bus) --->
+Build Katapult deployment application (16KiB bootloader) --->
+Communication Interface (CAN bus) --->
 (4) CAN RX gpio number
 (5) CAN TX gpio number
 (1000000) CAN bus speed
-() GPIO pins to set at micro-controller startup
+() GPIO pins to set on bootloader entry
 [*] Support bootloader entry on rapid double click of reset button
 [ ] Enable bootloader entry on button (or gpio) state
-[ ] Enable Status LED
+[*] Enable Status LED
+    (gpio26) Status LED GPIO Pin
 ```
 
 Press `q` → `Yes` to save and exit.
@@ -256,6 +286,10 @@ make
 ```
 
 ### Phase 3: Configure and Build Klipper
+
+Build Klipper firmware for the EBB board. Configuration must match Katapult settings
+(processor, CAN pins, and 16KiB bootloader offset). This firmware handles all toolhead
+operations once connected via CAN.
 
 ```bash
 # Enter Klipper directory
@@ -302,7 +336,7 @@ make
 
 ```bash
 # Check for EBB DFU device
-lsusb | grep -i "2e8a:0003"
+lsusb | grep -i dfu
 ```
 
 **Expected result:**
@@ -310,12 +344,15 @@ lsusb | grep -i "2e8a:0003"
 Bus 001 Device XXX: ID 2e8a:0003 Raspberry Pi RP2 Boot
 ```
 
+**Note:** The device ID (2e8a:0003 shown above) may be different on your system. Record the
+actual ID from your output - you'll need it in the next steps.
+
 ❌ **If not found:** Repeat DFU mode entry process
 
 ### Phase 7: Flash Katapult
 
 ```bash
-# Flash Katapult to EBB
+# Flash Katapult to EBB (replace 2e8a:0003 with your device ID from Phase 6)
 make flash FLASH_DEVICE=2e8a:0003
 ```
 
@@ -329,7 +366,7 @@ make flash FLASH_DEVICE=2e8a:0003
 ### Phase 9: Flash Klipper
 
 ```bash
-# Flash Klipper to EBB
+# Flash Klipper to EBB (use the same device ID from Phase 6)
 make flash FLASH_DEVICE=2e8a:0003
 ```
 
@@ -425,6 +462,18 @@ canbus_interface: can0
 ```bash
 python3 ~/katapult/scripts/flash_can.py -i can0 -f ~/klipper/out/klipper.bin -u <EBB_UUID>
 ```
+
+---
+
+## Additional Resources
+
+**Official Documentation:**
+- [BTT EBB 2209 CAN RP2040 Wiki](https://bttwiki.com/EBB%202209%20CAN%20RP2040.html)
+
+**Community Guides:**
+- [Esoterical's CAN Bus Guide - Manta M8P V2.0](https://canbus.esoterical.online/mainboard_flashing/common_hardware/BigTreeTech%20Manta%20M8P%20v2.0/README.html)
+- [Esoterical's CAN Bus Guide - SB2209 RP2040](https://canbus.esoterical.online/toolhead_flashing/common_hardware/BigTreeTech%20SB2209%20(RP2040)/README.html)
+- [Voron Forum: Manta M8P + BTT EBB SB22xx Setup](https://forum.vorondesign.com/threads/manta-m8p-btt-ebb-sb22xx-setup.1697/)
 
 ---
 

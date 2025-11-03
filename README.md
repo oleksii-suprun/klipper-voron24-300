@@ -1,11 +1,11 @@
 # Voron 2.4 300mm - Klipper Configuration
 
-A comprehensive Klipper configuration for a Voron 2.4 300mm 3D printer using BigTreeTech Manta M8P V2.0 controller board with CB1 compute module and EBB SB2209 CAN toolhead board.
+A comprehensive Klipper configuration for a Voron 2.4 300mm 3D printer using BigTreeTech Manta M8P V2.0 controller board with Raspberry Pi CM4 compute module and EBB SB2209 CAN toolhead board.
 
 ## 📋 Hardware Configuration
 
 ### Main Controller Board
-- **BigTreeTech Manta M8P V2.0** with CB1 Compute Module
+- **BigTreeTech Manta M8P V2.0** with Raspberry Pi CM4 Compute Module
 - STM32H723 microcontroller
 - CAN bus communication via USB-to-CAN bridge mode
 - UUID: `8c2968dbfb37`
@@ -61,7 +61,6 @@ A comprehensive Klipper configuration for a Voron 2.4 300mm 3D printer using Big
 │   └── print_start_end.cfg                   # Print start/end sequences
 └── doc/                                      # Setup and configuration guides
     ├── can0_setup_guide.md                   # CAN interface setup
-    ├── cb1_networkmanager_guide.md           # Network configuration
     └── manta_m8p_can_setup_guide.md          # CAN hardware setup
 ```
 
@@ -71,9 +70,9 @@ A comprehensive Klipper configuration for a Voron 2.4 300mm 3D printer using Big
 
 Before setting up this configuration, ensure you have:
 
-1. **BigTreeTech CB1** with Armbian OS installed
+1. **Raspberry Pi CM4** with a compatible Linux OS installed (Raspberry Pi OS, Armbian, etc.)
 2. **Klipper, Moonraker, and Mainsail** installed via KIAUH
-3. **Klipper Gcode Shell Command Extension** installed for backup functionality  
+3. **Klipper Gcode Shell Command Extension** installed for backup functionality
 4. **CAN interface** properly configured (see setup guides)
 5. **Hardware** properly wired according to Voron 2.4 specifications
 
@@ -112,11 +111,9 @@ This extension enables the `BACKUP_CFG` macro to automatically commit configurat
    ```
 
 2. **Follow the setup guides** in the `doc/` folder in order:
-   
-   - **[CB1 NetworkManager Guide](doc/cb1_networkmanager_guide.md)** - Sets up reliable WiFi networking and eliminates 40+ second boot delays caused by systemd-networkd conflicts.
-   
+
    - **[CAN0 Interface Setup](doc/can0_setup_guide.md)** - Configures the CAN bus interface with proper queue length (1024) to prevent "Timer too close" errors that cause print failures.
-   
+
    - **[Manta M8P CAN Setup](doc/manta_m8p_can_setup_guide.md)** - Flashes firmware to both controller and toolhead boards, enabling CAN communication between components.
 
 3. **Update MCU UUIDs** in `printer.cfg`:
@@ -327,5 +324,5 @@ This configuration is provided as-is for educational and personal use. Modify ac
 
 ---
 
-**Last Updated**: August 2025  
-**Tested On**: BigTreeTech CB1 with Manta M8P V2.0 and EBB SB2209 CAN boards
+**Last Updated**: November 2025
+**Tested On**: Raspberry Pi CM4 with Manta M8P V2.0 and EBB SB2209 CAN boards
