@@ -336,7 +336,7 @@ make
 
 ```bash
 # Check for EBB DFU device
-lsusb | grep -i dfu
+lsusb | grep -i boot
 ```
 
 **Expected result:**
@@ -353,36 +353,34 @@ actual ID from your output - you'll need it in the next steps.
 
 ```bash
 # Flash Katapult to EBB (replace 2e8a:0003 with your device ID from Phase 6)
+cd ~/katapult
 make flash FLASH_DEVICE=2e8a:0003
 ```
 
 ### Phase 8: Re-enter DFU Mode
-
-**Repeat DFU Mode Entry (same process):**
-1. **Hold** BOOT button on EBB
-2. **Press and release** RESET button on EBB (while holding BOOT)
-3. **Release** BOOT button
-
-### Phase 9: Flash Klipper
-
-```bash
-# Flash Klipper to EBB (use the same device ID from Phase 6)
-make flash FLASH_DEVICE=2e8a:0003
-```
-
-### Phase 10: Verify EBB Success
-
-```bash
-# No USB verification needed for EBB - proceed to Phase 11
-```
-
-### Phase 11: Switch to CAN Communication
 
 **Hardware Changes:**
 1. **Remove** USB cable between Manta M8P and EBB
 2. **Remove** USB_5V jumper from EBB board
 3. **Connect** CAN cable (CAN_H and CAN_L only, leave power wires disconnected)
 4. **Keep** 120Ω termination jumper on EBB board
+
+### Phase 9: Flash Klipper
+
+```bash
+# Run the following command to find CAN uuid
+cd ~/katapult/scripts
+python3 flash_can.py -i can0 -q
+```
+
+Use command following to flash Klipper via Katapult
+
+```bash
+python3 flash_can.py -i can0 -f ~/klipper/out/klipper.bin -u be69315a613c
+```
+
+**Note:** The be69315a613c is replaced with the actual UUID.
+
 
 ### Phase 12: Test CAN Communication
 
