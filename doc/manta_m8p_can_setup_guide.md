@@ -1,29 +1,64 @@
-# BTT Manta M8P V2.0 CAN Configuration Guide
+# Archived BTT Manta M8P V2.0 CAN / EBB Configuration Guide
 
-Complete guide to configure BigTreeTech Manta M8P V2.0 as a CAN bridge and flash EBB toolhead boards for CAN communication.
+This guide is retained as historical reference for the previous BigTreeTech EBB SB2209 CAN toolhead setup. It is **not** the active hardware configuration for this repository anymore.
 
-## Prerequisites
+## Current Repository Hardware
+
+The current printer configuration uses:
+
+- **Mainboard:** BigTreeTech Manta M8P V2.0 connected to Klipper by USB serial
+- **Toolhead:** LDO Nitehawk-SB connected to Klipper by USB serial
+- **Active toolhead config:** `nitehawk-sb.cfg` with `[mcu nhk]`
+- **Not used anymore:** BigTreeTech EBB SB2209 CAN toolhead board
+
+Do **not** follow this guide to configure the current printer unless you intentionally replace the Nitehawk-SB with a CAN toolhead and rebuild the printer around CAN communication again.
+
+For the current setup, the relevant MCU sections are expected to look like:
+
+```ini
+# Manta M8P main controller over USB serial
+[mcu]
+serial: /dev/serial/by-id/usb-Klipper_stm32h723xx_...
+
+# LDO Nitehawk-SB toolboard over USB serial
+[mcu nhk]
+serial: /dev/serial/by-id/usb-Klipper_rp2040_...
+restart_method: command
+```
+
+The CAN/EBB instructions below are archived for troubleshooting, rollback, or future hardware changes only.
+
+## Archived Guide Scope
+
+This archived procedure configures BigTreeTech Manta M8P V2.0 as a CAN bridge and flashes EBB toolhead boards for CAN communication.
+
+## Archived Prerequisites
+
+These prerequisites apply only if you intentionally restore the old CAN/EBB topology:
 
 - BTT Manta M8P V2.0 with CB1 or CM4
 - SSH access to CB1/CM4
-- EBB SB2209 CAN or similar toolhead board
+- EBB SB2209 CAN or similar CAN toolhead board
 - CAN cable with proper wiring
 - USB cable for initial flashing
 
-## Important Setup Notes
+## Important Archived Setup Notes
 
 - This guide is **specifically for Manta M8P V2.0** only
-- Ensure you have the CAN0 interface configured (see CAN0 setup guide)
-- All devices must use the same CAN bitrate (1000000 recommended)
+- This guide does **not** describe the current Nitehawk-SB USB configuration
+- Ensure you have the CAN0 interface configured (see CAN0 setup guide) before restoring CAN hardware
+- All CAN devices must use the same CAN bitrate (1000000 recommended)
 - **CRITICAL**: Start with EBB toolhead board **DISCONNECTED**
 
-## Overview
+## Archived Overview
 
-The CAN configuration process involves two main stages, each following an identical workflow to minimize errors:
+The old CAN configuration process involved two main stages, each following an identical workflow to minimize errors:
 
-### What We're Building
+### What This Archived Guide Builds
 1. **Manta M8P as CAN Bridge** - Acts as USB-to-CAN converter between CB1 and CAN bus
-2. **EBB Toolhead on CAN** - Communicates wirelessly over CAN bus for reduced wiring
+2. **EBB Toolhead on CAN** - Communicates over CAN bus for reduced wiring
+
+This is **not** what the active repository config currently uses.
 
 ### The Process
 Each stage follows the same 12-phase workflow:
@@ -43,7 +78,9 @@ Each stage follows the same 12-phase workflow:
 - Both devices accessible via CAN for operation and future updates
 - Simplified wiring with robust communication protocol
 
-## Hardware Preparation
+## Archived Hardware Preparation
+
+Only use this section if intentionally restoring the old EBB CAN hardware. For the current Nitehawk-SB USB setup, leave `nitehawk-sb.cfg` active and do not convert the Manta to USB-to-CAN bridge mode.
 
 ### Initial Hardware State
 - EBB board unplugged from everything
@@ -51,7 +88,7 @@ Each stage follows the same 12-phase workflow:
 - SSH connection to CB1/CM4 established
 - CAN0 interface verified working
 
-## Stage 1: Manta M8P V2.0 Configuration
+## Archived Stage 1: Manta M8P V2.0 CAN Bridge Configuration
 
 ### Phase 1: Get Katapult
 
@@ -231,7 +268,7 @@ Query Complete
 
 ---
 
-## Stage 2: EBB Toolhead Board Configuration
+## Archived Stage 2: EBB Toolhead Board Configuration
 
 Configure the EBB SB2209 to communicate over CAN bus. Unlike the Manta M8P (which acts as a
 USB-to-CAN bridge), the EBB board will be a pure CAN device handling all toolhead functions
@@ -402,11 +439,13 @@ Query Complete
 
 ---
 
-## Final Configuration
+## Archived Final CAN Configuration
 
-### Printer Configuration
+The following configuration is for the old EBB CAN setup only. It should **not** be applied to the current Nitehawk-SB USB setup.
 
-Add to your `printer.cfg`:
+### Old CAN Printer Configuration
+
+If restoring the EBB CAN setup, add to your `printer.cfg`:
 
 ```ini
 # Manta M8P (main controller)
@@ -420,7 +459,9 @@ canbus_uuid: yyyyyyyyyyyyyyy  # Your EBB UUID
 canbus_interface: can0
 ```
 
-## Success Verification Checklist
+## Archived CAN Success Verification Checklist
+
+Only applicable when restoring the old CAN setup:
 
 - [ ] Manta M8P shows as CAN adapter in `lsusb`
 - [ ] Both devices detected in CAN query
@@ -452,7 +493,9 @@ canbus_interface: can0
 - **Power**: Ensure EBB board is properly powered via CAN or external source
 - **Reset**: Try power cycling both boards
 
-## Future Firmware Updates
+## Archived Future CAN Firmware Updates
+
+Only applicable when the EBB CAN setup is restored. The current Nitehawk-SB USB setup uses the Nitehawk firmware/update process instead.
 
 **Manta M8P**: Requires DFU mode entry and USB flashing (repeat Stage 1)
 
@@ -475,6 +518,7 @@ python3 ~/katapult/scripts/flash_can.py -i can0 -f ~/klipper/out/klipper.bin -u 
 
 ---
 
-**Critical Reminder:** This guide is specifically for Manta M8P V2.0. Do not use these settings for other versions.
+**Critical Reminder:** This guide is archived for the old Manta M8P + EBB SB2209 CAN setup. The current repository uses Manta M8P USB serial plus LDO Nitehawk-SB USB serial. Do not use these CAN settings for the current printer unless you intentionally revert to CAN hardware.
 
-*Last updated: August 2025*
+*Last updated for current repo status: June 2026*
+*Original CAN guide: August 2025*

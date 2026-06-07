@@ -90,6 +90,7 @@ Temporary Items
 .apdisk
 
 saved_variables.cfg
+*.db
 adxl_results/belts/*.csv
 adxl_results/vibrations/*.tar.gz
 ShakeTune_results

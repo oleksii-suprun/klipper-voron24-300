@@ -32,7 +32,7 @@ DATABASE_FILE=$(eval echo "${DATABASE_FILE:-~/printer_data/database/moonraker-sq
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 GIT_USER_NAME="${GIT_USER_NAME:-Voron-Backup-Bot}"
 GIT_USER_EMAIL="${GIT_USER_EMAIL:-voron-backup-bot@noreply.github.com}"
-BACKUP_DATABASE="${BACKUP_DATABASE:-true}"
+BACKUP_DATABASE="${BACKUP_DATABASE:-false}"
 VERBOSE_OUTPUT="${VERBOSE_OUTPUT:-false}"
 
 # Lock file to prevent simultaneous runs
@@ -104,7 +104,8 @@ grab_version(){
     fi
 }
 
-# Copy database for backup (with error handling)
+# Copy database only when explicitly enabled. Moonraker history is runtime state,
+# not printer configuration, and may contain print metadata.
 if [ "$BACKUP_DATABASE" = "true" ] && [ -f "$DATABASE_FILE" ]; then
     echo "SQLite history database found! Copying..."
     if cp "$DATABASE_FILE" "$CONFIG_FOLDER/" 2>/dev/null; then
@@ -193,4 +194,3 @@ push_config(){
 
 grab_version
 push_config
-
